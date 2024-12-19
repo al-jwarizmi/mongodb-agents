@@ -7,6 +7,7 @@ from .orders_agent import OrdersAgent
 import logging
 import os
 import json
+import yaml
 
 # Configure logging
 logger = logging.getLogger('agents.router')
@@ -14,6 +15,7 @@ logger = logging.getLogger('agents.router')
 class RouterAgent(BaseAgent):
     def __init__(self):
         super().__init__("Router")
+        self.agent_config = self._load_agents_from_config()
         self.available_agents: Dict[str, Type[BaseAgent]] = {
             "product_details": ProductDetailsAgent,
             "reviews": ReviewsAgent,
@@ -22,29 +24,36 @@ class RouterAgent(BaseAgent):
         self.agent_instances: Dict[str, BaseAgent] = {}
         logger.info(f"Initialized {self.__class__.__name__} with {len(self.available_agents)} available agents")
         
+    def _load_agents_from_config(self) -> Dict:
+        """Load agent configuration from YAML file."""
+        try:
+            config_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'agents_config.yaml')
+            with open(config_path, 'r') as f:
+                config = yaml.safe_load(f)
+            logger.info("Successfully loaded agent configuration")
+            return config
+        except Exception as e:
+            logger.error(f"Error loading agent configuration: {str(e)}", exc_info=True)
+            raise
+
     def _create_system_prompt(self) -> str:
-        return """You are a router agent that directs customer queries to specialized agents.
+        """Create the system prompt dynamically from config."""
+        agents_config = self.agent_config['agents']
+        
+        # Build available agents section
+        available_agents = []
+        for agent_id, config in agents_config.items():
+            agent_section = [
+                f"{len(available_agents) + 1}. {config['name']}",
+                *[f"   - {resp}" for resp in config['responsibilities']],
+                f"   KEYWORDS: {', '.join(config['keywords'])}"
+            ]
+            available_agents.extend(agent_section)
+
+        prompt = f"""You are a router agent that directs customer queries to specialized agents.
 
 AVAILABLE AGENTS:
-1. Product Details Agent
-   - Product information, features, specifications
-   - Price inquiries
-   - Product comparisons
-   - Technical questions
-   KEYWORDS: features, specs, compare, difference, price, size, material
-
-2. Reviews Agent
-   - Customer feedback and experiences
-   - Ratings and review analysis
-   - Customer satisfaction metrics
-   KEYWORDS: reviews, ratings, feedback, customers say, experience, recommend
-
-3. Orders Agent
-   - Purchase processing
-   - Order status and tracking
-   - Shipping and delivery
-   - Payment handling
-   KEYWORDS: buy, order, purchase, delivery, shipping, payment, track
+{chr(10).join(available_agents)}
 
 ROUTING RULES:
 1. Order Process Priority:
@@ -72,6 +81,8 @@ Use function call with:
 - agent_type: Selected agent ID
 - confidence: Routing confidence (0-1)
 - reasoning: Brief explanation"""
+
+        return prompt
 
     async def process_message(self, message: str, context: Optional[Dict] = None) -> str:
         """Process incoming messages by routing to appropriate specialized agent."""
