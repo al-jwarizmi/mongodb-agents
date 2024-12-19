@@ -12,15 +12,18 @@ import yaml
 # Configure logging
 logger = logging.getLogger('agents.router')
 
+# Agent class mapping
+AGENT_CLASSES = {
+    "ProductDetailsAgent": ProductDetailsAgent,
+    "ReviewsAgent": ReviewsAgent,
+    "OrdersAgent": OrdersAgent
+}
+
 class RouterAgent(BaseAgent):
     def __init__(self):
         super().__init__("Router")
         self.agent_config = self._load_agents_from_config()
-        self.available_agents: Dict[str, Type[BaseAgent]] = {
-            "product_details": ProductDetailsAgent,
-            "reviews": ReviewsAgent,
-            "orders": OrdersAgent
-        }
+        self.available_agents = self._initialize_available_agents()
         self.agent_instances: Dict[str, BaseAgent] = {}
         logger.info(f"Initialized {self.__class__.__name__} with {len(self.available_agents)} available agents")
         
@@ -36,19 +39,30 @@ class RouterAgent(BaseAgent):
             logger.error(f"Error loading agent configuration: {str(e)}", exc_info=True)
             raise
 
+    def _initialize_available_agents(self) -> Dict[str, Type[BaseAgent]]:
+        """Initialize available agents from config."""
+        available_agents = {}
+        for agent_id, config in self.agent_config['agents'].items():
+            if config.get('enabled', False):
+                agent_class = AGENT_CLASSES.get(config['class'])
+                if agent_class:
+                    available_agents[agent_id] = agent_class
+                else:
+                    logger.warning(f"Agent class {config['class']} not found for {agent_id}")
+        return available_agents
+
     def _create_system_prompt(self) -> str:
         """Create the system prompt dynamically from config."""
-        agents_config = self.agent_config['agents']
-        
-        # Build available agents section
+        # Only include enabled agents in the prompt
         available_agents = []
-        for agent_id, config in agents_config.items():
-            agent_section = [
-                f"{len(available_agents) + 1}. {config['name']}",
-                *[f"   - {resp}" for resp in config['responsibilities']],
-                f"   KEYWORDS: {', '.join(config['keywords'])}"
-            ]
-            available_agents.extend(agent_section)
+        for agent_id, config in self.agent_config['agents'].items():
+            if agent_id in self.available_agents:  # Only include enabled agents
+                agent_section = [
+                    f"{len(available_agents) + 1}. {config['name']}",
+                    *[f"   - {resp}" for resp in config['responsibilities']],
+                    f"   KEYWORDS: {', '.join(config['keywords'])}"
+                ]
+                available_agents.extend(agent_section)
 
         prompt = f"""You are a router agent that directs customer queries to specialized agents.
 
