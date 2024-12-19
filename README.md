@@ -86,18 +86,37 @@ agents:
   product_details:
     enabled: true
     name: "Product Details Agent"
-    description: "Handles product information, comparisons, and specifications"
-  
+    class: "ProductDetailsAgent"
+    description: "Product information, features, specifications"
+    responsibilities:
+      - "Product information, features, specifications"
+      - "Price inquiries"
+      - "Product comparisons"
+      - "Technical questions"
+    keywords: ["features", "specs", "compare", "difference", "price", "size", "material"]
+
   reviews:
     enabled: true
     name: "Reviews Agent"
-    description: "Manages customer reviews and ratings"
-  
+    class: "ReviewsAgent"
+    description: "Customer feedback and experiences"
+    responsibilities:
+      - "Customer feedback and experiences"
+      - "Ratings and review analysis"
+      - "Customer satisfaction metrics"
+    keywords: ["reviews", "ratings", "feedback", "customers say", "experience", "recommend"]
+
   orders:
     enabled: true
     name: "Orders Agent"
-    description: "Handles order processing, status checks, and purchase inquiries"
-```
+    class: "OrdersAgent"
+    description: "Purchase processing and order management"
+    responsibilities:
+      - "Purchase processing"
+      - "Order status and tracking"
+      - "Shipping and delivery"
+      - "Payment handling"
+    keywords: ["buy", "order", "purchase", "delivery", "shipping", "payment", "track"] ```
 
 ## Running Tests
 
