@@ -62,7 +62,7 @@ A conversational multi-agent system with db read/write operations. The system us
 6. **Initialize Database**
    ```bash
    # Load initial product catalog and reviews
-   python -c "from database.data_loader import DataLoader; loader = DataLoader(); loader.load_all_data()"
+   python init_db.py
    ```
 
 ## Running the System
