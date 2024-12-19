@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛌💤🙂‍↔️ Frodo</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        .chat-container {
+            height: calc(100vh - 200px);
+        }
+        .message {
+            max-width: 80%;
+            margin: 8px;
+            padding: 12px;
+            border-radius: 12px;
+        }
+        .user-message {
+            background-color: #e2e8f0;
+            margin-left: auto;
+        }
+        .assistant-message {
+            background-color: #4299e1;
+            color: white;
+            margin-right: auto;
+        }
+        .system-message {
+            background-color: #48bb78;
+            color: white;
+            margin-right: auto;
+        }
+        .error-message {
+            background-color: #f56565;
+            color: white;
+            margin-right: auto;
+        }
+        .typing-indicator {
+            padding: 12px;
+            display: none;
+        }
+        .typing-indicator.active {
+            display: flex;
+        }
+        .dot {
+            width: 8px;
+            height: 8px;
+            margin: 0 4px;
+            background: #a0aec0;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out;
+        }
+        .dot:nth-child(1) { animation-delay: -0.32s; }
+        .dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
+        }
+        .markdown-content {
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+        }
+        .markdown-content p {
+            margin-bottom: 0.5rem;
+        }
+        .markdown-content ul, .markdown-content ol {
+            margin-left: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .markdown-content code {
+            background-color: rgba(0, 0, 0, 0.1);
+            padding: 0.1rem 0.3rem;
+            border-radius: 0.2rem;
+        }
+        .markdown-content pre {
+            background-color: rgba(0, 0, 0, 0.1);
+            padding: 0.5rem;
+            border-radius: 0.3rem;
+            margin-bottom: 0.5rem;
+            overflow-x: auto;
+        }
+        .markdown-content table {
+            border-collapse: collapse;
+            margin-bottom: 0.5rem;
+            width: 100%;
+        }
+        .markdown-content th, .markdown-content td {
+            border: 1px solid rgba(0, 0, 0, 0.2);
+            padding: 0.3rem;
+        }
+        .markdown-content blockquote {
+            border-left: 4px solid rgba(0, 0, 0, 0.2);
+            margin-left: 0;
+            padding-left: 1rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-4">
+        <header class="text-center mb-4">
+            <h1 class="text-3xl font-bold text-blue-600">Frodo 🛌💤 Your Mattress Expert</h1>
+            <p class="text-gray-600">Ask me anything about our mattresses!</p>
+        </header>
+
+        <div class="bg-white rounded-lg shadow-lg p-4">
+            <div id="chat-messages" class="chat-container overflow-y-auto mb-4">
+                <!-- Messages will be inserted here -->
+            </div>
+
+            <div class="typing-indicator">
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+            </div>
+
+            <div class="flex space-x-2">
+                <input type="text" id="message-input" 
+                    class="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    placeholder="Type your message...">
+                <button id="send-button" 
+                    class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    Send
+                </button>
+                <button id="clear-button"
+                    class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-400">
+                    Clear
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const sessionId = Date.now().toString();
+        let ws = null;
+
+        function connectWebSocket() {
+            ws = new WebSocket(`ws://localhost:8000/ws/chat/${sessionId}`);
+            
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                
+                if (data.type === 'status' && data.content === 'typing') {
+                    document.querySelector('.typing-indicator').classList.add('active');
+                } else {
+                    document.querySelector('.typing-indicator').classList.remove('active');
+                    addMessage(data.type, data.content);
+                }
+            };
+
+            ws.onclose = function() {
+                setTimeout(connectWebSocket, 1000);
+            };
+        }
+
+        function addMessage(type, content) {
+            const messagesDiv = document.getElementById('chat-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}-message`;
+            
+            const markdownDiv = document.createElement('div');
+            markdownDiv.className = 'markdown-content';
+            
+            markdownDiv.innerHTML = marked.parse(content);
+            
+            messageDiv.appendChild(markdownDiv);
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('message-input');
+            const message = input.value.trim();
+            
+            if (message && ws && ws.readyState === WebSocket.OPEN) {
+                addMessage('user', message);
+                ws.send(message);
+                input.value = '';
+            }
+        }
+
+        async function clearChat() {
+            try {
+                const response = await fetch(`http://localhost:8000/chat/${sessionId}/clear`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    // Clear chat messages
+                    document.getElementById('chat-messages').innerHTML = '';
+                    // Add welcome message
+                    if (data.welcome_message) {
+                        addMessage('assistant', data.welcome_message);
+                    }
+                }
+            } catch (error) {
+                addMessage('error', 'Failed to clear chat history');
+            }
+        }
+
+        document.getElementById('message-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        document.getElementById('send-button').addEventListener('click', sendMessage);
+        document.getElementById('clear-button').addEventListener('click', clearChat);
+
+        // Initial connection
+        connectWebSocket();
+    </script>
+</body>
+</html> 
